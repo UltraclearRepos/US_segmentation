@@ -1,0 +1,74 @@
+{
+  "paths": {
+    "project_root": "../..",
+    "training_root": "data/",
+    "models_root": "models/segmentation"
+  },
+  "data": {
+    "images_dir": "images",
+    "masks_dir": "masks",
+    "image_size": [
+      256,
+      256
+    ],
+    "train_ratio": 0.8,
+    "augmentation": {
+      "enabled": true,
+      "flip_probability": 0.5,
+      "rot90_probability": 0.5,
+      "intensity_probability": 0.5,
+      "noise_probability": 0.25
+    },
+    "weighted_sampler": {
+      "enabled": true,
+      "minority_sample_power": 0.7
+    },
+    "variant": "original"
+  },
+  "model": {
+    "in_channels": 1,
+    "num_classes": 6,
+    "base_channels": 32,
+    "dropout": 0.1
+  },
+  "training": {
+    "seed": 42,
+    "device": "auto",
+    "batch_size": 8,
+    "num_workers": 2,
+    "pin_memory": true,
+    "epochs": 80,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "use_amp": true,
+    "gradient_clip_norm": 1.0,
+    "scheduler": {
+      "factor": 0.5,
+      "patience": 8
+    }
+  },
+  "loss": {
+    "class_weight_power": 0.5,
+    "cross_entropy_weight": 1.0,
+    "dice_weight": 1.0,
+    "focal_weight": 0.5,
+    "focal_gamma": 2.0
+  },
+  "export": {
+    "save_last": true,
+    "save_torchscript": true,
+    "save_full_pytorch": true
+  },
+  "tensorboard": {
+    "root_dir": "runs",
+    "log_every_n_steps": 10
+  },
+  "callbacks": {
+    "monitor": "val/mean_dice_fg",
+    "early_stopping": {
+      "enabled": true,
+      "patience": 15,
+      "min_delta": 0.0
+    }
+  }
+}
