@@ -1,28 +1,35 @@
-"""Validation metrics."""
-
-import numpy as np
-import torch
-
-
-@torch.no_grad()
-def batch_metrics(logits, targets, num_classes):
-    pred = logits.argmax(1)
-    dices = []
-    ious = []
-    for c in range(num_classes):
-        a, b = pred == c, targets == c
-        inter = (a & b).sum().float()
-        dices.append(float((2 * inter + 1e-5) / (a.sum() + b.sum() + 1e-5)))
-        ious.append(float((inter + 1e-5) / ((a | b).sum() + 1e-5)))
-    return dices, ious
+"""TorchMetrics collections used by the segmentation LightningModule."""
+from torchmetrics import MetricCollection
+from torchmetrics.classification import MulticlassJaccardIndex
+from torchmetrics.segmentation import DiceScore
 
 
-def aggregate(items):
-    dice = np.mean([x[0] for x in items], axis=0)
-    iou = np.mean([x[1] for x in items], axis=0)
-    return {
-        "dice_per_class": dice.tolist(),
-        "iou_per_class": iou.tolist(),
-        "mean_dice_fg": float(dice[1:].mean()) if len(dice) > 1 else float(dice.mean()),
-        "mean_iou_fg": float(iou[1:].mean()) if len(iou) > 1 else float(iou.mean()),
-    }
+def build_segmentation_metrics(num_classes, prefix):
+    return MetricCollection(
+        {
+            "dice_per_class": DiceScore(
+                num_classes=num_classes,
+                include_background=True,
+                average="none",
+                aggregation_level="global",
+                input_format="index",
+            ),
+            "iou_per_class": MulticlassJaccardIndex(
+                num_classes=num_classes,
+                average="none",
+            ),
+            "mean_dice_fg": DiceScore(
+                num_classes=num_classes,
+                include_background=False,
+                average="macro",
+                aggregation_level="global",
+                input_format="index",
+            ),
+            "mean_iou_fg": MulticlassJaccardIndex(
+                num_classes=num_classes,
+                average="macro",
+                ignore_index=0,
+            ),
+        },
+        prefix=prefix,
+    )

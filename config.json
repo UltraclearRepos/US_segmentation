@@ -1,12 +1,10 @@
 {
   "paths": {
     "project_root": "../..",
-    "training_root": "data/",
+    "dataset_dir": "data/segmentation",
     "models_root": "models/segmentation"
   },
   "data": {
-    "images_dir": "images",
-    "masks_dir": "masks",
     "image_size": [
       256,
       256
@@ -22,12 +20,10 @@
     "weighted_sampler": {
       "enabled": true,
       "minority_sample_power": 0.7
-    },
-    "variant": "original"
+    }
   },
   "model": {
     "in_channels": 1,
-    "num_classes": 6,
     "base_channels": 32,
     "dropout": 0.1
   },

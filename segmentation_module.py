@@ -1,37 +1,48 @@
-"""LightningModule with U-Net, loss, metrics and optimizer."""
-
-import numpy as np
+"""LightningModule with U-Net, loss, TorchMetrics and optimizer."""
 import pytorch_lightning as pl
 import torch
+
 from losses import CombinedLoss
-from metrics import batch_metrics, aggregate
+from metrics import build_segmentation_metrics
 from model import UNet2D
 
 
 class SegmentationModule(pl.LightningModule):
-    def __init__(self, config, class_weights):
+    def __init__(self, config, class_weights, num_classes):
         super().__init__()
+
         self.config = config
+        model_config = {**config["model"], "num_classes": num_classes}
         self.save_hyperparameters(
             {
-                "model": config["model"],
+                "model": model_config,
                 "loss": config["loss"],
                 "training": config["training"],
             }
         )
-        self.model = UNet2D(**config["model"])
+
+        self.model = UNet2D(**model_config)
         self.register_buffer("class_weights", class_weights)
         self.criterion = CombinedLoss(
-            self.class_weights, config["model"]["num_classes"], config["loss"]
+            self.class_weights,
+            num_classes,
+            config["loss"],
         )
-        self.validation_metrics = []
+
+        self.train_metrics = build_segmentation_metrics(num_classes, prefix="train/")
+        self.val_metrics = build_segmentation_metrics(num_classes, prefix="val/")
 
     def forward(self, images):
         return self.model(images)
 
     def training_step(self, batch, batch_idx):
         images, masks = batch
-        loss = self.criterion(self(images), masks)
+
+        logits = self(images)
+        loss = self.criterion(logits, masks)
+        predictions = logits.argmax(dim=1)
+
+        self.train_metrics.update(predictions, masks)
         self.log(
             "train/loss",
             loss,
@@ -40,15 +51,22 @@ class SegmentationModule(pl.LightningModule):
             prog_bar=True,
             batch_size=images.size(0),
         )
+
         return loss
+
+    def on_train_epoch_end(self):
+        metrics = self.train_metrics.compute()
+        self._log_metrics(metrics)
+        self.train_metrics.reset()
 
     def validation_step(self, batch, batch_idx):
         images, masks = batch
+
         logits = self(images)
         loss = self.criterion(logits, masks)
-        self.validation_metrics.append(
-            batch_metrics(logits, masks, self.config["model"]["num_classes"])
-        )
+        predictions = logits.argmax(dim=1)
+
+        self.val_metrics.update(predictions, masks)
         self.log(
             "val/loss",
             loss,
@@ -59,28 +77,48 @@ class SegmentationModule(pl.LightningModule):
         )
 
     def on_validation_epoch_end(self):
-        if not self.validation_metrics:
-            return
-        values = aggregate(self.validation_metrics)
-        self.validation_metrics.clear()
-        self.log("val/mean_dice_fg", values["mean_dice_fg"], prog_bar=True)
-        self.log("val/mean_iou_fg", values["mean_iou_fg"])
-        for class_id, value in enumerate(values["dice_per_class"]):
-            self.log(f"val/dice_class_{class_id}", value)
-        for class_id, value in enumerate(values["iou_per_class"]):
-            self.log(f"val/iou_class_{class_id}", value)
+        metrics = self.val_metrics.compute()
+        self._log_metrics(metrics)
+        self.val_metrics.reset()
+
+    def _log_metrics(self, metrics):
+        to_log = {}
+
+        for metric_name, value in metrics.items():
+            if isinstance(value, torch.Tensor) and value.ndim > 0:
+                for class_id, class_value in enumerate(value):
+                    to_log[f"{metric_name}_{class_id}"] = class_value
+            else:
+                to_log[metric_name] = value
+
+        to_log["step"] = self.current_epoch
+
+        self.log_dict(
+            to_log,
+            prog_bar=True,
+            on_step=False,
+            on_epoch=True,
+            sync_dist=True,
+        )
 
     def configure_optimizers(self):
         training = self.config["training"]
+
         optimizer = torch.optim.AdamW(
             self.parameters(),
             lr=training["learning_rate"],
             weight_decay=training["weight_decay"],
         )
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode="max", **training["scheduler"]
+            optimizer,
+            mode="max",
+            **training["scheduler"],
         )
+
         return {
             "optimizer": optimizer,
-            "lr_scheduler": {"scheduler": scheduler, "monitor": "val/mean_dice_fg"},
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val/mean_dice_fg",
+            },
         }

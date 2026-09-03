@@ -1,4 +1,5 @@
-"""Train one segmentation variant: python train.py --config config.json."""
+"""Train segmentation from a prepared dataset: python train.py --config config.json."""
+
 import argparse
 import json
 import shutil
@@ -15,34 +16,27 @@ from segmentation_module import SegmentationModule
 from utils import ensure_dir, seed_everything
 
 
-def save_json(path: Path, data: dict) -> None:
+def save_json(path, data):
     with path.open("w", encoding="utf-8") as file:
         json.dump(data, file, indent=2, ensure_ascii=False)
 
 
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=None)
-    parser.add_argument("--variant", default=None)
+    parser.add_argument("--dataset-dir", default=None)
     args = parser.parse_args()
 
     config = load_config(args.config)
     seed_everything(config["training"]["seed"])
 
-    variant = args.variant or config["data"]["variant"]
-    training_root = resolve_path(config, config["paths"]["training_root"])
-    masks_dir = training_root / config["data"]["masks_dir"]
-    original_images_dir = training_root / config["data"]["images_dir"]
-    denoised_root = training_root / "denoised"
-    images_dir = original_images_dir if variant == "original" else denoised_root / variant
-
-    if not images_dir.exists():
-        raise FileNotFoundError(f"Missing images for variant '{variant}': {images_dir}")
-
-    output_dir = resolve_path(config, config["paths"]["models_root"]) / variant
+    dataset_dir = resolve_path(
+        config, args.dataset_dir or config["paths"]["dataset_dir"]
+    )
+    output_dir = resolve_path(config, config["paths"]["models_root"]) / dataset_dir.name
     ensure_dir(output_dir)
 
-    data_module = SegmentationDataModule(config, images_dir, masks_dir)
+    data_module = SegmentationDataModule(config, dataset_dir)
     data_module.setup()
     save_json(output_dir / "dataset_info.json", data_module.dataset_info)
     shutil.copy2(config["_path"], output_dir / "config.json")
@@ -50,9 +44,13 @@ def main() -> None:
     logger = TensorBoardLogger(
         save_dir=resolve_path(config, config["tensorboard"]["root_dir"]),
         name="segmentation",
-        version=variant,
+        version=dataset_dir.name,
     )
-    module = SegmentationModule(config, data_module.class_weights)
+    module = SegmentationModule(
+        config,
+        data_module.class_weights,
+        num_classes=data_module.num_classes,
+    )
     trainer = pl.Trainer(
         max_epochs=config["training"]["epochs"],
         accelerator="gpu" if torch.cuda.is_available() else "cpu",

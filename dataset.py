@@ -1,68 +1,89 @@
-"""Dataset for grayscale ultrasound segmentation."""
+"""PyTorch dataset for an already prepared segmentation dataset."""
 
-import random
 from pathlib import Path
+import random
+
 import numpy as np
+import pandas as pd
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
 
 
+def _resize(array, image_size, is_mask=False):
+    height, width = image_size
+    image = Image.fromarray(np.clip(array, 0, 255).astype(np.uint8), "L")
+    mode = Image.Resampling.NEAREST if is_mask else Image.Resampling.BILINEAR
+    dtype = np.uint8 if is_mask else np.float32
+    return np.asarray(image.resize((width, height), mode), dtype=dtype)
+
+
+def load_mask(path, image_size, num_classes):
+    with Image.open(path) as image:
+        mask = np.asarray(image.convert("L"), dtype=np.uint8)
+    mask = _resize(mask, image_size, is_mask=True).astype(np.int64)
+
+    invalid = np.unique(mask[(mask < 0) | (mask >= num_classes)])
+    if invalid.size:
+        raise ValueError(f"Invalid class IDs {invalid.tolist()} in mask: {path}")
+    return mask
+
+
 class SegmentationDataset(Dataset):
-    image_extensions = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
+    def __init__(
+        self, dataset_dir, sample_ids, image_size, num_classes, augmentation=None
+    ):
+        self.image_size = image_size
+        self.num_classes = num_classes
+        self.augmentation = augmentation
 
-    def __init__(self, pairs, label_mapping, data_config, augment):
-        self.pairs = pairs
-        self.label_mapping = label_mapping
-        self.image_size = data_config["image_size"]
-        self.augmentation = data_config["augmentation"]
-        self.augment = augment and self.augmentation["enabled"]
+        dataset_dir = Path(dataset_dir)
+        manifest = pd.read_csv(dataset_dir / "manifest.csv").set_index("sample_id")
+        self.samples = manifest.loc[sample_ids].copy()
+        for column in ("image_path", "mask_path"):
+            self.samples[column] = self.samples[column].map(
+                lambda path: dataset_dir / path
+            )
 
-    def _load_image(self, path, dtype=np.float32):
+    def _load_image(self, path):
         with Image.open(path) as image:
-            return np.asarray(image.convert("L"), dtype=dtype)
+            array = np.asarray(image.convert("L"), dtype=np.float32)
+        array = _resize(array, self.image_size)
+        return np.clip(array / 255.0, 0.0, 1.0).astype(np.float32)
 
-    def _resize(self, array, is_mask=False):
-        height, width = self.image_size
-        image = Image.fromarray(np.clip(array, 0, 255).astype(np.uint8), "L")
-        mode = Image.Resampling.NEAREST if is_mask else Image.Resampling.BILINEAR
-        return np.asarray(image.resize((width, height), mode), dtype=np.uint8 if is_mask else np.float32)
-
-    def _remap_mask(self, mask):
-        mapped = np.zeros_like(mask, dtype=np.int64)
-        for raw_value, class_id in self.label_mapping.items():
-            mapped[mask == raw_value] = class_id
-        return mapped
+    def iter_masks(self):
+        for path in self.samples["mask_path"]:
+            yield load_mask(path, self.image_size, self.num_classes)
 
     def _augment(self, image, mask):
         if random.random() < self.augmentation["flip_probability"]:
-            image, mask = np.flip(image, 1).copy(), np.flip(mask, 1).copy()
+            image = np.flip(image, 1).copy()
+            mask = np.flip(mask, 1).copy()
         if random.random() < self.augmentation["flip_probability"]:
-            image, mask = np.flip(image, 0).copy(), np.flip(mask, 0).copy()
+            image = np.flip(image, 0).copy()
+            mask = np.flip(mask, 0).copy()
         if random.random() < self.augmentation["rot90_probability"]:
             k = random.randint(0, 3)
-            image, mask = np.rot90(image, k).copy(), np.rot90(mask, k).copy()
+            image = np.rot90(image, k).copy()
+            mask = np.rot90(mask, k).copy()
         if random.random() < self.augmentation["intensity_probability"]:
-            image = np.clip(
-                image * random.uniform(0.85, 1.15) + random.uniform(-0.05, 0.05), 0, 1
-            )
+            scale = random.uniform(0.85, 1.15)
+            shift = random.uniform(-0.05, 0.05)
+            image = np.clip(image * scale + shift, 0, 1)
         if random.random() < self.augmentation["noise_probability"]:
-            image = np.clip(
-                image + np.random.normal(0, 0.02, image.shape), 0, 1
-            ).astype(np.float32)
+            noise = np.random.normal(0, 0.02, image.shape)
+            image = np.clip(image + noise, 0, 1).astype(np.float32)
         return image, mask
 
     def __len__(self):
-        return len(self.pairs)
+        return len(self.samples)
 
     def __getitem__(self, index):
-        image_path, mask_path = self.pairs[index]
-        image = np.clip(
-            self._resize(self._load_image(image_path)) / 255, 0, 1
-        ).astype(np.float32)
-        mask = self._remap_mask(
-            self._resize(self._load_image(mask_path, np.uint8), is_mask=True)
-        )
-        if self.augment:
+        sample = self.samples.iloc[index]
+        image = self._load_image(sample["image_path"])
+        mask = load_mask(sample["mask_path"], self.image_size, self.num_classes)
+
+        if self.augmentation and self.augmentation["enabled"]:
             image, mask = self._augment(image, mask)
+
         return torch.from_numpy(image[None]).float(), torch.from_numpy(mask).long()

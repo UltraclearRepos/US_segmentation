@@ -23,19 +23,15 @@ class DoubleConv(nn.Module):
 
 
 class UNet2D(nn.Module):
-    def __init__(self, in_channels=1, num_classes=6, base_channels=32, dropout=0.1):
+    def __init__(self, num_classes, in_channels=1, base_channels=32, dropout=0.1):
         super().__init__()
         b = base_channels
         self.e1, self.p1 = DoubleConv(in_channels, b), nn.MaxPool2d(2)
         self.e2, self.p2 = DoubleConv(b, b * 2, dropout), nn.MaxPool2d(2)
         self.e3, self.p3 = DoubleConv(b * 2, b * 4, dropout), nn.MaxPool2d(2)
         self.b = DoubleConv(b * 4, b * 8, dropout)
-        self.u3, self.d3 = nn.ConvTranspose2d(b * 8, b * 4, 2, 2), DoubleConv(
-            b * 8, b * 4, dropout
-        )
-        self.u2, self.d2 = nn.ConvTranspose2d(b * 4, b * 2, 2, 2), DoubleConv(
-            b * 4, b * 2, dropout
-        )
+        self.u3, self.d3 = nn.ConvTranspose2d(b * 8, b * 4, 2, 2), DoubleConv(b * 8, b * 4, dropout)
+        self.u2, self.d2 = nn.ConvTranspose2d(b * 4, b * 2, 2, 2), DoubleConv(b * 4, b * 2, dropout)
         self.u1, self.d1 = nn.ConvTranspose2d(b * 2, b, 2, 2), DoubleConv(b * 2, b)
         self.out = nn.Conv2d(b, num_classes, 1)
 
