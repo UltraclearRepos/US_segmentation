@@ -47,9 +47,10 @@ def main():
         version=dataset_dir.name,
     )
     module = SegmentationModule(
-        config,
-        data_module.class_weights,
+        config=config,
+        class_weights=data_module.class_weights,
         num_classes=data_module.num_classes,
+        class_name_mapping=data_module.class_name_mapping,
     )
     trainer = pl.Trainer(
         max_epochs=config["training"]["epochs"],

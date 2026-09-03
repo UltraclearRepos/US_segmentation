@@ -10,24 +10,6 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 
-def _resize(array, image_size, is_mask=False):
-    height, width = image_size
-    image = Image.fromarray(np.clip(array, 0, 255).astype(np.uint8), "L")
-    mode = Image.Resampling.NEAREST if is_mask else Image.Resampling.BILINEAR
-    dtype = np.uint8 if is_mask else np.float32
-    return np.asarray(image.resize((width, height), mode), dtype=dtype)
-
-
-def load_mask(path, image_size, num_classes):
-    with Image.open(path) as image:
-        mask = np.asarray(image.convert("L"), dtype=np.uint8)
-    mask = _resize(mask, image_size, is_mask=True).astype(np.int64)
-
-    invalid = np.unique(mask[(mask < 0) | (mask >= num_classes)])
-    if invalid.size:
-        raise ValueError(f"Invalid class IDs {invalid.tolist()} in mask: {path}")
-    return mask
-
 
 class SegmentationDataset(Dataset):
     def __init__(
@@ -45,15 +27,37 @@ class SegmentationDataset(Dataset):
                 lambda path: dataset_dir / path
             )
 
+
+    def _resize(self, array, is_mask):
+        height, width = self.image_size
+        image = Image.fromarray(np.clip(array, 0, 255).astype(np.uint8), "L")
+        mode = Image.Resampling.NEAREST if is_mask else Image.Resampling.BILINEAR
+        dtype = np.uint8 if is_mask else np.float32
+        return np.asarray(image.resize((width, height), mode), dtype=dtype)
+
+    
     def _load_image(self, path):
         with Image.open(path) as image:
             array = np.asarray(image.convert("L"), dtype=np.float32)
-        array = _resize(array, self.image_size)
+        array = self._resize(array, is_mask=False)
         return np.clip(array / 255.0, 0.0, 1.0).astype(np.float32)
+
+
+    def _load_mask(self, path):
+        with Image.open(path) as image:
+            mask = np.asarray(image.convert("L"), dtype=np.uint8)
+        mask = self._resize(mask, is_mask=True).astype(np.int64)
+
+        invalid = np.unique(mask[(mask < 0) | (mask >= self.num_classes)])
+        if invalid.size:
+            raise ValueError(f"Invalid class IDs {invalid.tolist()} in mask: {path}")
+        return mask
+
 
     def iter_masks(self):
         for path in self.samples["mask_path"]:
-            yield load_mask(path, self.image_size, self.num_classes)
+            yield self._load_mask(path)
+
 
     def _augment(self, image, mask):
         if random.random() < self.augmentation["flip_probability"]:
@@ -75,15 +79,22 @@ class SegmentationDataset(Dataset):
             image = np.clip(image + noise, 0, 1).astype(np.float32)
         return image, mask
 
+
     def __len__(self):
         return len(self.samples)
+
 
     def __getitem__(self, index):
         sample = self.samples.iloc[index]
         image = self._load_image(sample["image_path"])
-        mask = load_mask(sample["mask_path"], self.image_size, self.num_classes)
+        mask = self._load_mask(sample["mask_path"])
 
         if self.augmentation and self.augmentation["enabled"]:
             image, mask = self._augment(image, mask)
 
-        return torch.from_numpy(image[None]).float(), torch.from_numpy(mask).long()
+        image_tensor = torch.from_numpy(image).float()
+        image_tensor = image_tensor.unsqueeze(0)
+
+        mask_tensor = torch.from_numpy(mask).long()
+
+        return image_tensor, mask_tensor

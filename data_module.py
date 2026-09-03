@@ -2,12 +2,12 @@
 
 import csv
 from pathlib import Path
-import random
 
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
+from sklearn.model_selection import GroupShuffleSplit
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from dataset import SegmentationDataset
@@ -25,8 +25,8 @@ class SegmentationDataModule(pl.LightningDataModule):
 
         self.manifest_path = self.dataset_dir / "manifest.csv"
         self.classes_path = self.dataset_dir / "classes.csv"
-        self.classes = self._load_classes()
-        self.num_classes = len(self.classes)
+        self.class_name_mapping = self._load_classes()
+        self.num_classes = len(self.class_name_mapping)
 
     def _load_classes(self):
         with self.classes_path.open(newline="", encoding="utf-8") as file:
@@ -43,24 +43,31 @@ class SegmentationDataModule(pl.LightningDataModule):
         if len(set(row["class_name"] for row in classes)) != len(classes):
             raise ValueError("class_name values must be unique")
 
-        return [
-            {"class_id": int(row["class_id"]), "class_name": row["class_name"]}
+        return {
+            int(row["class_id"]): row["class_name"]
             for row in classes
-        ]
+        }
 
     def _split_manifest(self, manifest):
-        group_ids = sorted(manifest["group_id"].unique())
-        random.Random(self.training_config["seed"]).shuffle(group_ids)
-        split_index = int(len(group_ids) * self.dataset_config["train_ratio"])
-        if split_index in (0, len(group_ids)):
+        if manifest["group_id"].nunique() < 2:
             raise ValueError("Need at least two groups for non-empty train and validation sets")
 
-        train_groups = set(group_ids[:split_index])
-        is_train = manifest["group_id"].isin(train_groups)
-        train_ids = manifest.loc[is_train, "sample_id"].tolist()
-        val_ids = manifest.loc[~is_train, "sample_id"].tolist()
-        val_groups = sorted(set(group_ids) - train_groups)
-        return train_ids, val_ids, sorted(train_groups), val_groups
+        splitter = GroupShuffleSplit(
+            n_splits=1,
+            train_size=self.dataset_config["train_ratio"],
+            random_state=self.training_config["seed"],
+        )
+        train_indices, val_indices = next(
+            splitter.split(manifest, groups=manifest["group_id"])
+        )
+        train_manifest = manifest.iloc[train_indices]
+        val_manifest = manifest.iloc[val_indices]
+        return (
+            train_manifest["sample_id"].tolist(),
+            val_manifest["sample_id"].tolist(),
+            sorted(train_manifest["group_id"].unique()),
+            sorted(val_manifest["group_id"].unique()),
+        )
 
     def _class_counts(self, dataset):
         counts = np.zeros(self.num_classes, dtype=np.int64)
@@ -107,7 +114,7 @@ class SegmentationDataModule(pl.LightningDataModule):
             "num_val": len(val_ids),
             "train_groups": train_groups,
             "val_groups": val_groups,
-            "classes": self.classes,
+            "classes": self.class_name_mapping,
             "class_counts": counts.tolist(),
             "class_weights": self.class_weights.tolist(),
         }

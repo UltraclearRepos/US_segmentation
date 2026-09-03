@@ -8,8 +8,18 @@ from model import UNet2D
 
 
 class SegmentationModule(pl.LightningModule):
-    def __init__(self, config, class_weights, num_classes):
+    def __init__(self, config, class_weights, num_classes, class_name_mapping):
         super().__init__()
+
+        expected_class_ids = set(range(num_classes))
+
+        if set(class_name_mapping.keys()) != expected_class_ids:
+            raise ValueError(
+                f"class_name_mapping keys must be consecutive integers starting at 0. "
+                f"Expected {expected_class_ids}, got {set(class_name_mapping.keys())}"
+            )
+
+        self.class_name_mapping = class_name_mapping
 
         self.config = config
         model_config = {**config["model"], "num_classes": num_classes}
@@ -18,6 +28,7 @@ class SegmentationModule(pl.LightningModule):
                 "model": model_config,
                 "loss": config["loss"],
                 "training": config["training"],
+                "class_name_mapping": class_name_mapping
             }
         )
 
@@ -87,7 +98,7 @@ class SegmentationModule(pl.LightningModule):
         for metric_name, value in metrics.items():
             if isinstance(value, torch.Tensor) and value.ndim > 0:
                 for class_id, class_value in enumerate(value):
-                    to_log[f"{metric_name}_{class_id}"] = class_value
+                    to_log[f"{metric_name}_{self.class_name_mapping[class_id]}"] = class_value
             else:
                 to_log[metric_name] = value
 
