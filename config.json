@@ -1,8 +1,8 @@
 {
   "paths": {
-    "project_root": "../..",
     "dataset_dir": "data/segmentation",
-    "models_root": "models/segmentation"
+    "models_root": "models/segmentation",
+    "tensorboard_root": "runs"
   },
   "data": {
     "image_size": [
@@ -56,7 +56,6 @@
     "save_full_pytorch": true
   },
   "tensorboard": {
-    "root_dir": "runs",
     "log_every_n_steps": 10
   },
   "callbacks": {

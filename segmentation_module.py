@@ -7,7 +7,7 @@ from metrics import build_segmentation_metrics
 from model import UNet2D
 
 
-class SegmentationModule(pl.LightningModule):
+class SegmentationModelWrapper(pl.LightningModule):
     def __init__(self, config, class_weights, num_classes, class_name_mapping):
         super().__init__()
 

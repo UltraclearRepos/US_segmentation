@@ -10,9 +10,9 @@ import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from callbacks import build_callbacks
-from config import load_config, resolve_path
+from config import load_config
 from data_module import SegmentationDataModule
-from segmentation_module import SegmentationModule
+from segmentation_module import SegmentationModelWrapper
 from utils import ensure_dir, seed_everything
 
 
@@ -20,20 +20,19 @@ def save_json(path, data):
     with path.open("w", encoding="utf-8") as file:
         json.dump(data, file, indent=2, ensure_ascii=False)
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", required=True, help="Path to the JSON configuration file.")
+    return parser.parse_args()
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default=None)
-    parser.add_argument("--dataset-dir", default=None)
-    args = parser.parse_args()
+    args = parse_args()
 
     config = load_config(args.config)
     seed_everything(config["training"]["seed"])
 
-    dataset_dir = resolve_path(
-        config, args.dataset_dir or config["paths"]["dataset_dir"]
-    )
-    output_dir = resolve_path(config, config["paths"]["models_root"]) / dataset_dir.name
+    dataset_dir = config["paths"]["dataset_dir"]
+    output_dir = config["paths"]["models_root"] / dataset_dir.name
     ensure_dir(output_dir)
 
     data_module = SegmentationDataModule(config, dataset_dir)
@@ -42,11 +41,11 @@ def main():
     shutil.copy2(config["_path"], output_dir / "config.json")
 
     logger = TensorBoardLogger(
-        save_dir=resolve_path(config, config["tensorboard"]["root_dir"]),
+        save_dir=config["paths"]["tensorboard_root"],
         name="segmentation",
         version=dataset_dir.name,
     )
-    module = SegmentationModule(
+    model_wrapper = SegmentationModelWrapper(
         config=config,
         class_weights=data_module.class_weights,
         num_classes=data_module.num_classes,
@@ -61,7 +60,7 @@ def main():
         deterministic=True,
         log_every_n_steps=config["tensorboard"]["log_every_n_steps"],
     )
-    trainer.fit(module, datamodule=data_module)
+    trainer.fit(model_wrapper, datamodule=data_module)
 
 
 if __name__ == "__main__":

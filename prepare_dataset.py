@@ -144,11 +144,14 @@ def prepare_dataset(source_dir, output_dir):
     print(f"Prepared {len(manifest)} samples in: {output_dir}")
 
 
-def main():
+def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    args = parser.parse_args()
+    return parser.parse_args()
+
+def main():
+    args = parse_args()
     prepare_dataset(args.source_dir, args.output_dir)
 
 
