@@ -40,9 +40,10 @@ def main():
     save_json(output_dir / "dataset_info.json", data_module.dataset_info)
     shutil.copy2(config["_path"], output_dir / "config.json")
 
+    tensorboard_output = output_dir / "runs"
     logger = TensorBoardLogger(
-        save_dir=config["paths"]["tensorboard_root"],
-        name="segmentation",
+        save_dir=tensorboard_output,
+        name="",
         version=dataset_dir.name,
     )
     model_wrapper = SegmentationModelWrapper(
@@ -56,7 +57,7 @@ def main():
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         devices=1,
         logger=logger,
-        callbacks=build_callbacks(config, output_dir / "checkpoints"),
+        callbacks=build_callbacks(config, tensorboard_output / "checkpoints"),
         deterministic=True,
         log_every_n_steps=config["tensorboard"]["log_every_n_steps"],
         gradient_clip_val=1.0

@@ -2,7 +2,6 @@
   "paths": {
     "dataset_dir": "data/prepared/tg3k",
     "models_root": "models",
-    "tensorboard_root": "runs",
     "input_checkpoint": "input_checkpoints/best_model.pth"
   },
   "data": {
