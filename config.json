@@ -34,9 +34,7 @@
   "loss": {
     "class_weight_power": 0.5,
     "cross_entropy_weight": 1.0,
-    "dice_weight": 1.0,
-    "focal_weight": 0.5,
-    "focal_gamma": 2.0
+    "lambda": 0.5
   },
   "tensorboard": {
     "log_every_n_steps": 10
