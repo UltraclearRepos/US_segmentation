@@ -11,7 +11,7 @@ def load_config(path):
     with p.open(encoding="utf-8") as f:
         config = json.load(f)
 
-    missing = {"paths", "data", "model", "training", "loss", "export"} - set(config)
+    missing = {"paths", "data", "model", "training", "loss"} - set(config)
     if missing:
         raise ValueError(f"Missing config sections: {sorted(missing)}")
 

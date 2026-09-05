@@ -59,6 +59,7 @@ def main():
         callbacks=build_callbacks(config, output_dir / "checkpoints"),
         deterministic=True,
         log_every_n_steps=config["tensorboard"]["log_every_n_steps"],
+        gradient_clip_val=1.0
     )
     trainer.fit(model_wrapper, datamodule=data_module)
 

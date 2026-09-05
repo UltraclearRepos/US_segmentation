@@ -22,7 +22,11 @@ class SegmentationModelWrapper(pl.LightningModule):
         self.class_name_mapping = class_name_mapping
 
         self.config = config
-        model_config = {**config["model"], "n_classes": num_classes}
+        model_config = {
+            **config["model"],
+            "checkpoint_path": config["paths"]["input_checkpoint"],
+            "n_classes": num_classes
+        }
         self.save_hyperparameters(
             {
                 "model": model_config,
@@ -120,16 +124,7 @@ class SegmentationModelWrapper(pl.LightningModule):
             lr=training["learning_rate"],
             weight_decay=training["weight_decay"],
         )
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer,
-            mode="max",
-            **training["scheduler"],
-        )
 
         return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "monitor": "val/mean_dice_fg",
-            },
+            "optimizer": optimizer
         }

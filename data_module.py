@@ -1,14 +1,14 @@
 """LightningDataModule splitting a prepared segmentation manifest."""
 
 import csv
+import json
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
-from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader, WeightedRandomSampler
+from torch.utils.data import DataLoader
 
 from dataset import SegmentationDataset
 from utils import make_generator, worker_init_fn
@@ -48,31 +48,53 @@ class SegmentationDataModule(pl.LightningDataModule):
             for row in classes
         }
 
+    def _find_split_file(self):
+        json_files = list(self.dataset_dir.glob("*.json"))
+
+        if not json_files:
+            raise FileNotFoundError(f"No JSON split file found in {self.dataset_dir}")
+
+        if len(json_files) > 1:
+            raise ValueError(f"Multiple JSON split files found in {self.dataset_dir}: {json_files}")
+
+        return json_files[0]
+
     def _split_manifest(self, manifest):
         if len(manifest) < 2:
             raise ValueError("Need at least two samples for non-empty train and validation sets")
 
-        train_manifest, val_manifest = train_test_split(
-            manifest,
-            train_size=self.dataset_config["train_ratio"],
-            random_state=self.training_config["seed"],
-        )
-        return (
-            train_manifest["sample_id"].tolist(),
-            val_manifest["sample_id"].tolist(),
-        )
+        split_path = self._find_split_file()
+        with split_path.open("r", encoding="utf-8") as file:
+            split_data = json.load(file)
+
+        train_ids = split_data["train"]
+        val_ids = split_data["val"]
+
+        manifest_ids = set(manifest["sample_id"].tolist())
+
+        unknown_train_ids = set(train_ids) - manifest_ids
+        unknown_val_ids = set(val_ids) - manifest_ids
+
+        if unknown_train_ids or unknown_val_ids:
+            raise ValueError(
+                f"Split file {split_path} contains unknown sample IDs:\n"
+                f"  Train: {sorted(unknown_train_ids)}\n"
+                f"  Val: {sorted(unknown_val_ids)}"
+            )
+
+        if set(train_ids) & set(val_ids):
+            raise ValueError(
+                f"Split file {split_path} contains overlapping sample IDs:\n"
+                f"  Overlap: {sorted(set(train_ids) & set(val_ids))}"
+            )
+
+        return train_ids, val_ids
 
     def _class_counts(self, dataset):
         counts = np.zeros(self.num_classes, dtype=np.int64)
         for mask in dataset.iter_masks():
             counts += np.bincount(mask.ravel(), minlength=self.num_classes)
         return counts
-
-    def _sample_weights(self, dataset, class_weights, power):
-        return [
-            float(class_weights[np.unique(mask).tolist()].mean()) ** power
-            for mask in dataset.iter_masks()
-        ]
 
     def setup(self, stage=None):
         if hasattr(self, "train_dataset"):
@@ -110,21 +132,6 @@ class SegmentationDataModule(pl.LightningDataModule):
             "class_weights": self.class_weights.tolist(),
         }
 
-        sampler_config = self.dataset_config["weighted_sampler"]
-        self.train_sampler = None
-        if sampler_config["enabled"]:
-            sample_weights = self._sample_weights(
-                self.train_dataset,
-                self.class_weights,
-                sampler_config["minority_sample_power"],
-            )
-            self.train_sampler = WeightedRandomSampler(
-                sample_weights,
-                len(sample_weights),
-                replacement=True,
-                generator=self.generator,
-            )
-
     def _loader_kwargs(self):
         return {
             "batch_size": self.training_config["batch_size"],
@@ -137,8 +144,7 @@ class SegmentationDataModule(pl.LightningDataModule):
     def train_dataloader(self):
         return DataLoader(
             self.train_dataset,
-            shuffle=self.train_sampler is None,
-            sampler=self.train_sampler,
+            shuffle=True,
             generator=self.generator,
             **self._loader_kwargs(),
         )

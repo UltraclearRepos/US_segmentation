@@ -96,6 +96,8 @@ def prepare_dataset(source_dir, output_dir):
     missing = [path for path in required if not path.exists()]
     if source_dir == output_dir:
         raise ValueError("Source and output directories must be different")
+    if source_dir in output_dir.parents:
+        raise ValueError("Output directory must not be inside the source directory")
     if missing:
         raise FileNotFoundError(f"Missing source dataset entries: {missing}")
     if output_dir.exists() and any(output_dir.iterdir()):
@@ -111,14 +113,22 @@ def prepare_dataset(source_dir, output_dir):
     }
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "images").mkdir()
+    for source_entry in source_dir.iterdir():
+        if source_entry.name == "masks":
+            continue
+
+        output_entry = output_dir / source_entry.name
+        if source_entry.is_dir():
+            shutil.copytree(source_entry, output_entry)
+        else:
+            shutil.copy2(source_entry, output_entry)
+
     (output_dir / "masks").mkdir()
 
     image_paths, mask_paths = [], []
     for row in pairs.itertuples():
         image_target = output_dir / "images" / row.image_source.name
         mask_target = output_dir / "masks" / f"{row.sample_id}.png"
-        shutil.copy2(row.image_source, image_target)
         Image.fromarray(masks[row.sample_id], mode="L").save(mask_target)
         image_paths.append(image_target.relative_to(output_dir).as_posix())
         mask_paths.append(mask_target.relative_to(output_dir).as_posix())
@@ -126,7 +136,6 @@ def prepare_dataset(source_dir, output_dir):
     manifest = pairs[["sample_id"]].copy()
     manifest["image_path"], manifest["mask_path"] = image_paths, mask_paths
     manifest.to_csv(output_dir / "manifest.csv", index=False)
-    classes.to_csv(output_dir / "classes.csv", index=False)
     print(f"Prepared {len(manifest)} samples in: {output_dir}")
 
 

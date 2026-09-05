@@ -14,7 +14,7 @@ def build_callbacks(config, checkpoint_dir):
     callbacks = [
         ModelCheckpoint(
             dirpath=checkpoint_dir,
-            filename="best-{epoch:03d}-{val_mean_dice_fg:.4f}",
+            filename="best-{epoch:03d}",
             monitor=monitor,
             mode="max",
             save_top_k=1,

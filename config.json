@@ -1,7 +1,7 @@
 {
   "paths": {
     "dataset_dir": "data/prepared/tg3k",
-    "models_root": "models/tg3k",
+    "models_root": "models",
     "tensorboard_root": "runs",
     "input_checkpoint": "input_checkpoints/best_model.pth"
   },
@@ -10,38 +10,26 @@
       256,
       256
     ],
-    "train_ratio": 0.8,
     "augmentation": {
       "enabled": true,
       "flip_probability": 0.5,
       "rot90_probability": 0.5,
       "intensity_probability": 0.5,
       "noise_probability": 0.25
-    },
-    "weighted_sampler": {
-      "enabled": true,
-      "minority_sample_power": 0.7
     }
   },
   "model": {
-    "in_channels": 1,
+    "in_channels": 3,
     "bilinear": true
   },
   "training": {
     "seed": 42,
-    "device": "auto",
     "batch_size": 8,
     "num_workers": 2,
     "pin_memory": true,
     "epochs": 80,
     "learning_rate": 0.001,
-    "weight_decay": 0.0001,
-    "use_amp": true,
-    "gradient_clip_norm": 1.0,
-    "scheduler": {
-      "factor": 0.5,
-      "patience": 8
-    }
+    "weight_decay": 0.0001
   },
   "loss": {
     "class_weight_power": 0.5,
@@ -49,11 +37,6 @@
     "dice_weight": 1.0,
     "focal_weight": 0.5,
     "focal_gamma": 2.0
-  },
-  "export": {
-    "save_last": true,
-    "save_torchscript": true,
-    "save_full_pytorch": true
   },
   "tensorboard": {
     "log_every_n_steps": 10
