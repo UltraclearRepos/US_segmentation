@@ -74,25 +74,11 @@ def build_pairs(source_dir):
     return pd.DataFrame(pairs, columns=["sample_id", "image_source", "mask_source"])
 
 
-def add_groups(pairs, path):
-    if not path.exists():
-        return pairs.assign(group_id=pairs["sample_id"])
-
-    groups = pd.read_csv(path, dtype=str)
-    if not {"sample_id", "group_id"}.issubset(groups.columns):
-        raise ValueError("groups.csv must contain sample_id and group_id")
-    groups = groups[["sample_id", "group_id"]]
-    if groups.isna().any().any() or groups["sample_id"].duplicated().any():
-        raise ValueError("groups.csv contains empty or duplicate entries")
-    groups["group_id"] = groups["group_id"].str.strip()
-    if groups["group_id"].eq("").any() or set(groups["sample_id"]) != set(pairs["sample_id"]):
-        raise ValueError("groups.csv must contain exactly one group for every sample")
-    
-    return pairs.merge(groups, on="sample_id", validate="one_to_one")
-
 def remap_mask(path, mapping):
     with Image.open(path) as image:
         mask = np.asarray(image.convert("L"), dtype=np.uint8)
+
+    mask = np.where(mask >= 128, 255, 0).astype(np.uint8)  # Binarize the mask
 
     unknown = sorted(int(value) for value in set(np.unique(mask)) - set(mapping))
     if unknown:
@@ -116,7 +102,7 @@ def prepare_dataset(source_dir, output_dir):
         raise FileExistsError(f"Output directory is not empty: {output_dir}")
 
     classes = load_classes(source_dir / "classes.csv")
-    pairs = add_groups(build_pairs(source_dir), source_dir / "groups.csv")
+    pairs = build_pairs(source_dir)
 
     mapping = dict(zip(classes["source_value"], classes["class_id"]))
     masks = {
@@ -137,7 +123,7 @@ def prepare_dataset(source_dir, output_dir):
         image_paths.append(image_target.relative_to(output_dir).as_posix())
         mask_paths.append(mask_target.relative_to(output_dir).as_posix())
 
-    manifest = pairs[["sample_id", "group_id"]].copy()
+    manifest = pairs[["sample_id"]].copy()
     manifest["image_path"], manifest["mask_path"] = image_paths, mask_paths
     manifest.to_csv(output_dir / "manifest.csv", index=False)
     classes.to_csv(output_dir / "classes.csv", index=False)

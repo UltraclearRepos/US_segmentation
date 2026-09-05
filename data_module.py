@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
-from sklearn.model_selection import GroupShuffleSplit
+from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from dataset import SegmentationDataset
@@ -49,24 +49,17 @@ class SegmentationDataModule(pl.LightningDataModule):
         }
 
     def _split_manifest(self, manifest):
-        if manifest["group_id"].nunique() < 2:
-            raise ValueError("Need at least two groups for non-empty train and validation sets")
+        if len(manifest) < 2:
+            raise ValueError("Need at least two samples for non-empty train and validation sets")
 
-        splitter = GroupShuffleSplit(
-            n_splits=1,
+        train_manifest, val_manifest = train_test_split(
+            manifest,
             train_size=self.dataset_config["train_ratio"],
             random_state=self.training_config["seed"],
         )
-        train_indices, val_indices = next(
-            splitter.split(manifest, groups=manifest["group_id"])
-        )
-        train_manifest = manifest.iloc[train_indices]
-        val_manifest = manifest.iloc[val_indices]
         return (
             train_manifest["sample_id"].tolist(),
             val_manifest["sample_id"].tolist(),
-            sorted(train_manifest["group_id"].unique()),
-            sorted(val_manifest["group_id"].unique()),
         )
 
     def _class_counts(self, dataset):
@@ -86,7 +79,7 @@ class SegmentationDataModule(pl.LightningDataModule):
             return
 
         manifest = pd.read_csv(self.manifest_path)
-        train_ids, val_ids, train_groups, val_groups = self._split_manifest(manifest)
+        train_ids, val_ids = self._split_manifest(manifest)
 
         self.train_dataset = SegmentationDataset(
             self.dataset_dir,
@@ -112,8 +105,6 @@ class SegmentationDataModule(pl.LightningDataModule):
             "num_samples": len(manifest),
             "num_train": len(train_ids),
             "num_val": len(val_ids),
-            "train_groups": train_groups,
-            "val_groups": val_groups,
             "classes": self.class_name_mapping,
             "class_counts": counts.tolist(),
             "class_weights": self.class_weights.tolist(),

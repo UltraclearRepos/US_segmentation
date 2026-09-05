@@ -4,7 +4,7 @@ import torch
 
 from losses import CombinedLoss
 from metrics import build_segmentation_metrics
-from model import UNet2D
+from model import UNet
 
 
 class SegmentationModelWrapper(pl.LightningModule):
@@ -22,7 +22,7 @@ class SegmentationModelWrapper(pl.LightningModule):
         self.class_name_mapping = class_name_mapping
 
         self.config = config
-        model_config = {**config["model"], "num_classes": num_classes}
+        model_config = {**config["model"], "n_classes": num_classes}
         self.save_hyperparameters(
             {
                 "model": model_config,
@@ -32,7 +32,7 @@ class SegmentationModelWrapper(pl.LightningModule):
             }
         )
 
-        self.model = UNet2D(**model_config)
+        self.model = UNet(**model_config)
         self.register_buffer("class_weights", class_weights)
         self.criterion = CombinedLoss(
             self.class_weights,

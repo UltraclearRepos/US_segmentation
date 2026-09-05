@@ -12,7 +12,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from callbacks import build_callbacks
 from config import load_config
 from data_module import SegmentationDataModule
-from segmentation_module import SegmentationModelWrapper
+from model_wrapper import SegmentationModelWrapper
 from utils import ensure_dir, seed_everything
 
 
