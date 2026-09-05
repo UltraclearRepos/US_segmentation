@@ -43,7 +43,7 @@
     "monitor": "val/mean_dice_fg",
     "early_stopping": {
       "enabled": true,
-      "patience": 15,
+      "patience": 30,
       "min_delta": 0.0
     }
   }

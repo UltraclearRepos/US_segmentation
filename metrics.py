@@ -1,6 +1,6 @@
 """TorchMetrics collections used by the segmentation LightningModule."""
 from torchmetrics import MetricCollection
-from torchmetrics.classification import MulticlassJaccardIndex
+from torchmetrics.classification import MulticlassJaccardIndex, MulticlassPrecision, MulticlassRecall
 from torchmetrics.segmentation import DiceScore
 
 
@@ -25,10 +25,13 @@ def build_segmentation_metrics(num_classes, prefix):
                 aggregation_level="global",
                 input_format="index",
             ),
-            "mean_iou_fg": MulticlassJaccardIndex(
+            "precision_per_class": MulticlassPrecision(
                 num_classes=num_classes,
-                average="macro",
-                ignore_index=0,
+                average="none",
+            ),
+            "recall_per_class": MulticlassRecall(
+                num_classes=num_classes,
+                average="none",
             ),
         },
         prefix=prefix,
