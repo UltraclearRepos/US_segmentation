@@ -1,7 +1,7 @@
 {
   "paths": {
     "dataset_dir": "data/prepared/tg3k",
-    "models_root": "models",
+    "output_root": "outputs",
     "input_checkpoint": "input_checkpoints/best_model.pth"
   },
   "data": {

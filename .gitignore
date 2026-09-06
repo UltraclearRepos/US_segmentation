@@ -2,3 +2,5 @@ data
 input_checkpoints
 .vscode
 __pycache__
+.venv
+models

@@ -63,8 +63,8 @@ class SegmentationDataModule(pl.LightningDataModule):
         if len(manifest) < 2:
             raise ValueError("Need at least two samples for non-empty train and validation sets")
 
-        split_path = self._find_split_file()
-        with split_path.open("r", encoding="utf-8") as file:
+        self.split_path = self._find_split_file()
+        with self.split_path.open("r", encoding="utf-8") as file:
             split_data = json.load(file)
 
         train_ids = split_data["train"]
@@ -77,14 +77,14 @@ class SegmentationDataModule(pl.LightningDataModule):
 
         if unknown_train_ids or unknown_val_ids:
             raise ValueError(
-                f"Split file {split_path} contains unknown sample IDs:\n"
+                f"Split file {self.split_path} contains unknown sample IDs:\n"
                 f"  Train: {sorted(unknown_train_ids)}\n"
                 f"  Val: {sorted(unknown_val_ids)}"
             )
 
         if set(train_ids) & set(val_ids):
             raise ValueError(
-                f"Split file {split_path} contains overlapping sample IDs:\n"
+                f"Split file {self.split_path} contains overlapping sample IDs:\n"
                 f"  Overlap: {sorted(set(train_ids) & set(val_ids))}"
             )
 
