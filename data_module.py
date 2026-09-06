@@ -14,6 +14,16 @@ from dataset import SegmentationDataset
 from utils import make_generator, worker_init_fn
 
 
+def segmentation_collate(batch):
+    """Stack model-sized tensors and keep native-sized masks as a list."""
+    images, resized_masks, original_masks = zip(*batch)
+    return (
+        torch.stack(images),
+        torch.stack(resized_masks),
+        list(original_masks),
+    )
+
+
 class SegmentationDataModule(pl.LightningDataModule):
     def __init__(self, config, dataset_dir):
         super().__init__()
@@ -146,8 +156,14 @@ class SegmentationDataModule(pl.LightningDataModule):
             self.train_dataset,
             shuffle=True,
             generator=self.generator,
+            collate_fn=segmentation_collate,
             **self._loader_kwargs(),
         )
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, shuffle=False, **self._loader_kwargs())
+        return DataLoader(
+            self.val_dataset,
+            shuffle=False,
+            collate_fn=segmentation_collate,
+            **self._loader_kwargs(),
+        )

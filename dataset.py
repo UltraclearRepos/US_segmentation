@@ -45,8 +45,7 @@ class SegmentationDataset(Dataset):
 
     def _load_mask(self, path):
         with Image.open(path) as image:
-            mask = np.asarray(image.convert("L"), dtype=np.uint8)
-        mask = self._resize(mask, is_mask=True).astype(np.int64)
+            mask = np.asarray(image.convert("L"), dtype=np.int64)
 
         invalid = np.unique(mask[(mask < 0) | (mask >= self.num_classes)])
         if invalid.size:
@@ -56,7 +55,8 @@ class SegmentationDataset(Dataset):
 
     def iter_masks(self):
         for path in self.samples["mask_path"]:
-            yield self._load_mask(path)
+            mask = self._load_mask(path)
+            yield self._resize(mask, is_mask=True).astype(np.int64)
 
 
     def _augment(self, image, mask):
@@ -87,7 +87,8 @@ class SegmentationDataset(Dataset):
     def __getitem__(self, index):
         sample = self.samples.iloc[index]
         image = self._load_image(sample["image_path"])
-        mask = self._load_mask(sample["mask_path"])
+        original_mask = self._load_mask(sample["mask_path"])
+        mask = self._resize(original_mask, is_mask=True).astype(np.int64)
 
         if self.augmentation and self.augmentation["enabled"]:
             image, mask = self._augment(image, mask)
@@ -96,5 +97,6 @@ class SegmentationDataset(Dataset):
         image_tensor = image_tensor.unsqueeze(0)
 
         mask_tensor = torch.from_numpy(mask).long()
+        original_mask_tensor = torch.from_numpy(original_mask).long()
 
-        return image_tensor, mask_tensor
+        return image_tensor, mask_tensor, original_mask_tensor

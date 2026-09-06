@@ -1,6 +1,7 @@
 """LightningModule with U-Net, loss, TorchMetrics and optimizer."""
 import pytorch_lightning as pl
 import torch
+import torch.nn.functional as F
 
 from losses import CombinedLoss
 from metrics import build_segmentation_metrics
@@ -51,7 +52,7 @@ class SegmentationModelWrapper(pl.LightningModule):
         return self.model(images)
 
     def training_step(self, batch, batch_idx):
-        images, masks = batch
+        images, masks, _ = batch
 
         logits = self(images)
         loss = self.criterion(logits, masks)
@@ -75,13 +76,22 @@ class SegmentationModelWrapper(pl.LightningModule):
         self.train_metrics.reset()
 
     def validation_step(self, batch, batch_idx):
-        images, masks = batch
+        images, resized_masks, original_masks = batch
 
         logits = self(images)
-        loss = self.criterion(logits, masks)
+        loss = self.criterion(logits, resized_masks)
         predictions = logits.argmax(dim=1)
 
-        self.val_metrics.update(predictions, masks)
+        for prediction, original_mask in zip(predictions, original_masks):
+            prediction_at_original_size = F.interpolate(
+                prediction[None, None].float(),
+                size=original_mask.shape,
+                mode="nearest",
+            )[0, 0].long()
+            self.val_metrics.update(
+                prediction_at_original_size.unsqueeze(0),
+                original_mask.unsqueeze(0),
+            )
         self.log(
             "val/loss",
             loss,
