@@ -13,10 +13,11 @@ from torch.utils.data import Dataset
 
 class SegmentationDataset(Dataset):
     def __init__(
-        self, dataset_dir, sample_ids, image_size, num_classes, augmentation=None
+        self, dataset_dir, sample_ids, image_size, num_classes, task_name, augmentation=None
     ):
         self.image_size = image_size
         self.num_classes = num_classes
+        self.task_name = task_name
         self.augmentation = augmentation
 
         dataset_dir = Path(dataset_dir)
@@ -99,4 +100,4 @@ class SegmentationDataset(Dataset):
         mask_tensor = torch.from_numpy(mask).long()
         original_mask_tensor = torch.from_numpy(original_mask).long()
 
-        return image_tensor, mask_tensor, original_mask_tensor
+        return image_tensor, mask_tensor, original_mask_tensor, self.task_name

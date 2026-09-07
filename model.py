@@ -121,8 +121,8 @@ class UNet(nn.Module):
         self.up3 = Up(256, 128 // factor, bilinear)
         self.up4 = Up(128, 64, bilinear)
         
-        # Final output layer
-        self.outc = OutConv(64, n_classes) # For thyroid + nodule make 2 outputs
+        self.thyroid_head = OutConv(64, n_classes)
+        self.nodule_head = OutConv(64, n_classes)
         
         self._load_pretrained_weights()
 
@@ -167,5 +167,7 @@ class UNet(nn.Module):
         x = self.up4(x, x1)
         
         # Final output
-        x = self.outc(x)
-        return x
+        return {
+            "thyroid": self.thyroid_head(x),
+            "nodule": self.nodule_head(x),
+        }

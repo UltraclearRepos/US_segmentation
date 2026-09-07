@@ -1,6 +1,9 @@
 {
+  "datasets": {
+    "thyroid": "data/prepared/tg3k",
+    "nodule": "data/prepared/tn3k/trainval"
+  },
   "paths": {
-    "dataset_dir": "data/prepared/tg3k",
     "output_root": "outputs",
     "input_checkpoint": "input_checkpoints/best_model.pth"
   },
@@ -27,7 +30,7 @@
     "num_workers": 2,
     "pin_memory": true,
     "epochs": 80,
-    "learning_rate": 0.001,
+    "learning_rate": 0.0001,
     "weight_decay": 0.0001
   },
   "loss": {

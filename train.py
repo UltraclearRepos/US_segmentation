@@ -31,16 +31,21 @@ def main():
     config = load_config(args.config)
     seed_everything(config["training"]["seed"])
 
-    dataset_dir = config["paths"]["dataset_dir"]
+    dataset_dirs = config["datasets"]
+    if not dataset_dirs:
+        raise ValueError("Configure at least one dataset")
+
     run_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    run_dir = config["paths"]["output_root"] / dataset_dir.name / run_name
+    dataset_group = "_".join(sorted(dataset_dirs))
+    run_dir = config["paths"]["output_root"] / dataset_group / run_name
     run_dir.mkdir(parents=True, exist_ok=False)
 
-    data_module = SegmentationDataModule(config, dataset_dir)
+    data_module = SegmentationDataModule(config, dataset_dirs)
     data_module.setup()
     save_json(run_dir / "dataset_info.json", data_module.dataset_info)
     shutil.copy2(config["_path"], run_dir / "config.json")
-    shutil.copy2(data_module.split_path, run_dir / "split.json")
+    for task_name, split_path in data_module.split_paths.items():
+        shutil.copy2(split_path, run_dir / f"{task_name}_split.json")
 
     logger = TensorBoardLogger(
         save_dir=run_dir,
@@ -51,7 +56,7 @@ def main():
         config=config,
         class_weights=data_module.class_weights,
         num_classes=data_module.num_classes,
-        class_name_mapping=data_module.class_name_mapping,
+        class_name_mappings=data_module.class_name_mappings,
     )
     trainer = pl.Trainer(
         max_epochs=config["training"]["epochs"],
