@@ -1,11 +1,11 @@
 {
+  "run_name": 1,
   "datasets": {
     "thyroid": "data/prepared/tg3k"
   },
   "paths": {
     "output_root": "outputs",
-    "input_checkpoint": "input_checkpoints/best_model.pth",
-    "run_name": 1
+    "input_checkpoint": "input_checkpoints/best_model.pth"
   },
   "data": {
     "image_size": [

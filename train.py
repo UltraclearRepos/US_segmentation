@@ -35,7 +35,7 @@ def main():
     if not dataset_dirs:
         raise ValueError("Configure at least one dataset")
 
-    run_name = config["paths"]["run_name"]
+    run_name = config["run_name"]
     dataset_group = "_".join(sorted(dataset_dirs))
     run_dir = config["paths"]["output_root"] / dataset_group / run_name
     run_dir.mkdir(parents=True, exist_ok=False)
