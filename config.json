@@ -1,11 +1,11 @@
 {
   "datasets": {
-    "thyroid": "data/prepared/tg3k",
-    "nodule": "data/prepared/tn3k/trainval"
+    "thyroid": "data/prepared/tg3k"
   },
   "paths": {
     "output_root": "outputs",
-    "input_checkpoint": "input_checkpoints/best_model.pth"
+    "input_checkpoint": "input_checkpoints/best_model.pth",
+    "run_name": 1
   },
   "data": {
     "image_size": [

@@ -4,3 +4,4 @@ input_checkpoints
 __pycache__
 .venv
 models
+outputs
