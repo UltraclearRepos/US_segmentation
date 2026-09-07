@@ -46,6 +46,8 @@ class SegmentationDataModule(pl.LightningDataModule):
             raise ValueError("Each task must have exactly two classes")
         self.num_classes = 2
 
+        print(f'Class name mappings: {self.class_name_mappings}')
+
     def _load_classes(self, classes_path):
         with classes_path.open(newline="", encoding="utf-8") as file:
             rows = list(csv.DictReader(file))
