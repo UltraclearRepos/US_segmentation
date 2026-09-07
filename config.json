@@ -14,10 +14,36 @@
     ],
     "augmentation": {
       "enabled": true,
-      "flip_probability": 0.5,
-      "rot90_probability": 0.5,
-      "intensity_probability": 0.5,
-      "noise_probability": 0.25
+      "flip": {
+        "probability": 0.5
+      },
+      "rotation": {
+        "probability": 0.5,
+        "max_angle": 10
+      },
+      "intensity": {
+        "probability": 0.5,
+        "scale_min": 0.9,
+        "scale_max": 1.1,
+        "shift": 0.05
+      },
+
+      "gamma": {
+        "probability": 0.3,
+        "min_gamma": 0.8,
+        "max_gamma": 1.2
+      },
+
+      "noise": {
+        "probability": 0.25,
+        "sigma": 0.05
+      },
+
+      "gaussian_blur": {
+        "probability": 0.15,
+        "min_radius": 0.3,
+        "max_radius": 1.0
+      }
     }
   },
   "model": {
@@ -35,7 +61,6 @@
   },
   "loss": {
     "class_weight_power": 0.5,
-    "cross_entropy_weight": 1.0,
     "lambda": 0.5,
     "smooth": 1e-6
   },
@@ -45,7 +70,7 @@
   "callbacks": {
     "monitor": "val/mean_dice_fg",
     "early_stopping": {
-      "enabled": true,
+      "enabled": false,
       "patience": 30,
       "min_delta": 0.0
     }

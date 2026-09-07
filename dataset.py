@@ -6,7 +6,7 @@ import random
 import numpy as np
 import pandas as pd
 import torch
-from PIL import Image
+from PIL import Image, ImageFilter
 from torch.utils.data import Dataset
 
 
@@ -61,24 +61,54 @@ class SegmentationDataset(Dataset):
 
 
     def _augment(self, image, mask):
-        if random.random() < self.augmentation["flip_probability"]:
+        # Horizontal flip
+        if random.random() < self.augmentation["flip"]["probability"]:
             image = np.flip(image, 1).copy()
             mask = np.flip(mask, 1).copy()
-        if random.random() < self.augmentation["flip_probability"]:
-            image = np.flip(image, 0).copy()
-            mask = np.flip(mask, 0).copy()
-        if random.random() < self.augmentation["rot90_probability"]:
-            k = random.randint(0, 3)
-            image = np.rot90(image, k).copy()
-            mask = np.rot90(mask, k).copy()
-        if random.random() < self.augmentation["intensity_probability"]:
-            scale = random.uniform(0.85, 1.15)
-            shift = random.uniform(-0.05, 0.05)
+
+        # Rotation
+        if random.random() < self.augmentation["rotation"]["probability"]:
+            max_angle = self.augmentation["rotation"]["max_angle"]
+            angle = random.uniform(-max_angle, max_angle)
+
+            image_pil = Image.fromarray(np.clip(image * 255.0, 0, 255).astype(np.uint8), "L")
+            mask_pil = Image.fromarray(mask.astype(np.uint8), "L")
+
+            image_pil = image_pil.rotate(angle, resample=Image.Resampling.BILINEAR, fillcolor=0)
+            mask_pil = mask_pil.rotate(angle, resample=Image.Resampling.NEAREST, fillcolor=0)
+
+            image = np.asarray(image_pil, dtype=np.float32) / 255.0
+            mask = np.asarray(mask_pil, dtype=np.int64)
+
+        # Intensity scaling and shifting
+        if random.random() < self.augmentation["intensity"]["probability"]:
+            scale_min = self.augmentation["intensity"]["scale_min"]
+            scale_max = self.augmentation["intensity"]["scale_max"]
+            shift_range = self.augmentation["intensity"]["shift"]
+            scale = random.uniform(scale_min, scale_max)
+            shift = random.uniform(-shift_range, shift_range)
             image = np.clip(image * scale + shift, 0, 1)
-        if random.random() < self.augmentation["noise_probability"]:
-            noise = np.random.normal(0, 0.02, image.shape)
-            image = np.clip(image + noise, 0, 1).astype(np.float32)
-        return image, mask
+
+        # Gamma
+        if random.random() < self.augmentation["gamma"]["probability"]:
+            gamma = random.uniform(self.augmentation["gamma"]["min_gamma"], self.augmentation["gamma"]["max_gamma"])
+            image = np.clip(image ** gamma, 0, 1)
+
+        # Multiplicative noise
+        if random.random() < self.augmentation["noise"]["probability"]:
+            noise = np.random.normal(0, self.augmentation["noise"]["sigma"], image.shape)
+            image = np.clip(image * (1.0 + noise), 0, 1).astype(np.float32)
+
+        # Gaussian blur
+        if random.random() < self.augmentation["gaussian_blur"]["probability"]:
+            radius = random.uniform(self.augmentation["gaussian_blur"]["min_radius"], self.augmentation["gaussian_blur"]["max_radius"])
+
+            image_pil = Image.fromarray(np.clip(image * 255.0, 0, 255).astype(np.uint8), "L")
+            image_pil = image_pil.filter(ImageFilter.GaussianBlur(radius=radius))
+
+            image = np.asarray(image_pil, dtype=np.float32) / 255.0
+        
+        return image.astype(np.float32), mask.astype(np.int64)
 
 
     def __len__(self):
