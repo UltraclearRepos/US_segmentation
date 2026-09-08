@@ -1,5 +1,5 @@
 {
-  "run_name": 1,
+  "run_name": 4,
   "datasets": {
     "thyroid": "data/prepared/tg3k"
   },
@@ -60,7 +60,7 @@
     "weight_decay": 0.0001
   },
   "loss": {
-    "class_weight_power": 0.5,
+    "class_weight_power": 1.25,
     "lambda": 0.5,
     "smooth": 1e-6
   },
