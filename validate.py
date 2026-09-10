@@ -14,13 +14,15 @@ from src.model.model_wrapper import SegmentationModelWrapper
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-dir", required=True, help="Path to a finished run.")
-    parser.add_argument("--checkpoint", help="Optional checkpoint path.")
+    parser.add_argument("--checkpoint-name", help="Optional checkpoint path.")
     return parser.parse_args()
 
 
-def find_checkpoint(run_dir, checkpoint):
-    if checkpoint:
-        return Path(checkpoint).expanduser().resolve()
+
+def find_checkpoint(run_dir, checkpoint_name):
+    if checkpoint_name:
+        checkpoint_path = run_dir / "checkpoints" / checkpoint_name
+        return Path(checkpoint_path).expanduser().resolve()
 
     checkpoints = list((run_dir / "checkpoints").glob("best-*.ckpt"))
     if not checkpoints:
@@ -42,7 +44,7 @@ def main():
         class_name_mappings=data_module.class_name_mappings,
     )
 
-    checkpoint_path = find_checkpoint(run_dir, args.checkpoint)
+    checkpoint_path = find_checkpoint(run_dir, args.checkpoint_name)
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     model.load_state_dict(checkpoint["state_dict"])
     del checkpoint
