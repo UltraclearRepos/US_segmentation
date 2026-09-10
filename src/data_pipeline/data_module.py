@@ -10,7 +10,7 @@ import pytorch_lightning as pl
 import torch
 from torch.utils.data import ConcatDataset, DataLoader
 
-from dataset import SegmentationDataset
+from src.data_pipeline.dataset import SegmentationDataset
 from utils import make_generator, worker_init_fn
 
 

@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
-from denoising import DENOISING_METHODS, denoise_2d
+from src.data_pipeline.denoising import DENOISING_METHODS, denoise_2d
 
 
 EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}

@@ -3,9 +3,9 @@ import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
 
-from losses import CombinedLoss
-from metrics import build_segmentation_metrics
-from model import UNet
+from src.model.losses import CombinedLoss
+from src.model.metrics import build_segmentation_metrics
+from src.model.model import UNet
 
 
 class SegmentationModelWrapper(pl.LightningModule):

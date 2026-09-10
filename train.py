@@ -9,12 +9,12 @@ import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from callbacks import build_callbacks
-from config import load_config
-from data_module import SegmentationDataModule
-from diagnostics import generate_validation_diagnostics
-from model_wrapper import SegmentationModelWrapper
-from utils import seed_everything
+from src.utils.callbacks import build_callbacks
+from src.utils.config import load_config
+from src.data_pipeline.data_module import SegmentationDataModule
+from src.evaluation.diagnostics import generate_validation_diagnostics
+from src.model.model_wrapper import SegmentationModelWrapper
+from src.utils.utils import seed_everything
 
 
 def save_json(path, data):

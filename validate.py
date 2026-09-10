@@ -5,10 +5,10 @@ from pathlib import Path
 
 import torch
 
-from config import load_config
-from data_module import SegmentationDataModule
-from diagnostics import generate_validation_diagnostics
-from model_wrapper import SegmentationModelWrapper
+from src.utils.config import load_config
+from src.data_pipeline.data_module import SegmentationDataModule
+from src.evaluation.diagnostics import generate_validation_diagnostics
+from src.model.model_wrapper import SegmentationModelWrapper
 
 
 def parse_args():
