@@ -12,6 +12,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from callbacks import build_callbacks
 from config import load_config
 from data_module import SegmentationDataModule
+from diagnostics import generate_validation_diagnostics
 from model_wrapper import SegmentationModelWrapper
 from utils import seed_everything
 
@@ -69,6 +70,15 @@ def main():
         gradient_clip_val=1.0
     )
     trainer.fit(model_wrapper, datamodule=data_module)
+
+    best_checkpoint = torch.load(
+        trainer.checkpoint_callback.best_model_path,
+        map_location="cpu",
+        weights_only=False,
+    )
+    model_wrapper.load_state_dict(best_checkpoint["state_dict"])
+    del best_checkpoint
+    generate_validation_diagnostics(model_wrapper, data_module.val_dataset, run_dir)
 
 
 if __name__ == "__main__":
