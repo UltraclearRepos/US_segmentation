@@ -1,5 +1,5 @@
 {
-  "run_name": 10,
+  "run_name": 11,
   "datasets": {
     "thyroid": "data/prepared/tg3k"
   },
@@ -57,7 +57,7 @@
     "batch_size": 8,
     "num_workers": 2,
     "pin_memory": true,
-    "epochs": 80,
+    "epochs": 200,
     "learning_rate": 0.00001,
     "weight_decay": 0.0001
   },

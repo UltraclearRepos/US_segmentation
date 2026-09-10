@@ -27,15 +27,14 @@ class SegmentationModelWrapper(pl.LightningModule):
         self.config = config
         model_config = {
             **config["model"],
-            "checkpoint_path": config["paths"]["input_checkpoint"],
             "n_classes": num_classes
         }
         self.save_hyperparameters(
             {
-                "model": model_config,
-                "loss": config["loss"],
-                "training": config["training"],
-                "class_name_mappings": class_name_mappings,
+                "config": config,
+                "class_weights": class_weights,
+                "num_classes": num_classes,
+                "class_name_mappings": class_name_mappings
             }
         )
 

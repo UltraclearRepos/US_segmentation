@@ -99,10 +99,9 @@ class UNet(nn.Module):
         n_classes (int): Number of output classes (1 for binary segmentation)
         bilinear (bool): Whether to use bilinear upsampling
     """
-    def __init__(self, checkpoint_path, in_channels=1, n_classes=2, bilinear=True):
+    def __init__(self, in_channels=1, n_classes=2, bilinear=True):
         super(UNet, self).__init__()
 
-        self.checkpoint_path = checkpoint_path
         self.in_channels = in_channels
         self.n_classes = n_classes
         self.bilinear = bilinear
@@ -124,12 +123,10 @@ class UNet(nn.Module):
         self.thyroid_head = OutConv(64, n_classes)
         self.nodule_head = OutConv(64, n_classes)
         
-        self._load_pretrained_weights()
 
+    def load_pretrained_weights(self, checkpoint_path):
 
-    def _load_pretrained_weights(self):
-
-        checkpoint = torch.load(self.checkpoint_path, map_location=torch.device('cpu'))
+        checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
 
         pretrained_state_dict = checkpoint['model_state_dict']
         current_state_dict = self.state_dict()

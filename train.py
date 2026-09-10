@@ -59,6 +59,7 @@ def main():
         num_classes=data_module.num_classes,
         class_name_mappings=data_module.class_name_mappings,
     )
+    model_wrapper.model.load_pretrained_weights(config["paths"]["input_checkpoint"])
     trainer = pl.Trainer(
         max_epochs=config["training"]["epochs"],
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
