@@ -41,7 +41,11 @@ def _save_comparison(image_path, prediction, target, output_path):
 
     draw = ImageDraw.Draw(comparison)
     draw.text((8, 8), "USG", fill="white")
-    draw.text((width + 8, 8), "TP: green   FN: red   FP: blue", fill="white")
+    draw.text(
+        (width + 8, 8),
+        "Green: correct   Red: missed   Blue: extra",
+        fill="white",
+    )
     comparison.save(output_path)
 
 

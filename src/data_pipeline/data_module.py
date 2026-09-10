@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import ConcatDataset, DataLoader
 
 from src.data_pipeline.dataset import SegmentationDataset
-from utils import make_generator, worker_init_fn
+from utils.utils import make_generator, worker_init_fn
 
 
 def segmentation_collate(batch):
