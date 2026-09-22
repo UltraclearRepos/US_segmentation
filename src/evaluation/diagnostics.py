@@ -50,9 +50,9 @@ def _save_comparison(image_path, prediction, target, output_path):
 
 
 @torch.inference_mode()
-def generate_validation_diagnostics(model, val_dataset, run_dir):
+def generate_validation_diagnostics(model, val_dataset, run_dir, output_dir):
     """Run inference and save one side-by-side PNG for every validation sample."""
-    output_dir = Path(run_dir) / "diagnostics"
+    output_dir = Path(run_dir) / "diagnostics" / output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     device = next(model.parameters()).device
     model.eval()

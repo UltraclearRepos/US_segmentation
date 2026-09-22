@@ -15,6 +15,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-dir", required=True, help="Path to a finished run.")
     parser.add_argument("--checkpoint-name", help="Optional checkpoint path.")
+    parser.add_argument("--split", default="val", help="Dataset split to use for diagnostics.")
     return parser.parse_args()
 
 
@@ -49,7 +50,12 @@ def main():
     model.load_state_dict(checkpoint["state_dict"])
     del checkpoint
     model.to("cuda" if torch.cuda.is_available() else "cpu")
-    generate_validation_diagnostics(model, data_module.val_dataset, run_dir)
+    if args.split == "val":
+        generate_validation_diagnostics(model, data_module.val_dataset, run_dir, "val")
+    elif args.split == "train":
+        generate_validation_diagnostics(model, data_module.train_dataset, run_dir, "train")
+    else:
+        raise ValueError(f"Invalid split: {args.split}")
 
 
 if __name__ == "__main__":
