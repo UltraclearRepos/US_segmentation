@@ -37,16 +37,15 @@ def main():
         raise ValueError("Configure at least one dataset")
 
     run_name = str(config["run_name"])
-    dataset_group = "_".join(sorted(dataset_dirs))
-    run_dir = config["paths"]["output_root"] / dataset_group / run_name
+    run_dir = config["paths"]["output_root"] / run_name
     run_dir.mkdir(parents=True, exist_ok=False)
 
     data_module = SegmentationDataModule(config, dataset_dirs)
     data_module.setup()
     save_json(run_dir / "dataset_info.json", data_module.dataset_info)
     shutil.copy2(config["_path"], run_dir / "config.json")
-    for task_name, split_path in data_module.split_paths.items():
-        shutil.copy2(split_path, run_dir / f"{task_name}_split.json")
+    for index, (task_name, split_path) in enumerate(data_module.split_paths, start=1):
+        shutil.copy2(split_path, run_dir / f"{task_name}_{index}_split.json")
 
     logger = TensorBoardLogger(
         save_dir=run_dir,

@@ -30,23 +30,44 @@ class SegmentationDataModule(pl.LightningDataModule):
         super().__init__()
         self.config = config
         self.dataset_dirs = {
-            task_name: Path(dataset_dir)
-            for task_name, dataset_dir in dataset_dirs.items()
+            section: {
+                task_name: [Path(path) for path in paths]
+                for task_name, paths in tasks.items()
+            }
+            for section, tasks in dataset_dirs.items()
         }
         self.dataset_config = config["data"]
         self.training_config = config["training"]
         self.generator = make_generator(self.training_config["seed"] + 30)
 
-        self.class_name_mappings = {
-            task_name: self._load_classes(dataset_dir / "classes.csv")
-            for task_name, dataset_dir in self.dataset_dirs.items()
-        }
+        self._create_class_name_mappings()
+
         class_counts = {len(mapping) for mapping in self.class_name_mappings.values()}
         if class_counts != {2}:
             raise ValueError("Each task must have exactly two classes")
         self.num_classes = 2
 
         print(f'Class name mappings: {self.class_name_mappings}')
+
+
+    def _create_class_name_mappings(self):
+        self.class_name_mappings = {}
+        for section, task_name, dataset_dir in self._iter_dataset_dirs():
+            mapping = self._load_classes(dataset_dir / "classes.csv")
+
+            if task_name in self.class_name_mappings:
+                if mapping != self.class_name_mappings[task_name]:
+                    raise ValueError(
+                        f"Class name mapping for task '{task_name}' is inconsistent across datasets"
+                    )
+            else:
+                self.class_name_mappings[task_name] = mapping
+
+    def _iter_dataset_dirs(self):
+        for section, tasks in self.dataset_dirs.items():
+            for task_name, dataset_dirs in tasks.items():
+                for dataset_dir in dataset_dirs:
+                    yield section, task_name, dataset_dir
 
     def _load_classes(self, classes_path):
         with classes_path.open(newline="", encoding="utf-8") as file:
@@ -119,52 +140,77 @@ class SegmentationDataModule(pl.LightningDataModule):
 
         train_datasets = []
         val_datasets = []
+
+        class_counts = {
+            task_name: np.zeros(self.num_classes, dtype=np.int64)
+            for task_name in self.class_name_mappings
+        }
+
         self.class_weights = {}
-        self.split_paths = {}
-        self.dataset_info = {}
+        self.split_paths = []
+        self.dataset_info = {
+            task_name: {
+                "classes": mapping,
+                "sources": []
+            }
+            for task_name, mapping in self.class_name_mappings.items()
+        }
 
-        for task_name, dataset_dir in self.dataset_dirs.items():
+        for section, task_name, dataset_dir in self._iter_dataset_dirs():
             manifest = pd.read_csv(dataset_dir / "manifest.csv")
-            train_ids, val_ids, split_path = self._split_manifest(manifest, dataset_dir)
+            split_path = None
 
-            train_dataset = SegmentationDataset(
-                dataset_dir,
-                train_ids,
-                self.dataset_config["image_size"],
-                self.num_classes,
-                task_name,
-                augmentation=self.dataset_config["augmentation"],
-            )
-            val_dataset = SegmentationDataset(
-                dataset_dir,
-                val_ids,
-                self.dataset_config["image_size"],
-                self.num_classes,
-                task_name,
-            )
-            train_datasets.append(train_dataset)
-            val_datasets.append(val_dataset)
-            self.split_paths[task_name] = split_path
+            if section == "split":
+                train_ids, val_ids, split_path = self._split_manifest(manifest, dataset_dir)
+                self.split_paths.append((task_name, split_path))
+            elif section == "train":
+                train_ids = manifest["sample_id"].tolist()
+                val_ids = []
+            elif section == "val":
+                train_ids = []
+                val_ids = manifest["sample_id"].tolist()
+            else:
+                raise ValueError(f"Unknown dataset section: {section}")
 
-            counts = self._class_counts(train_dataset)
-            frequencies = np.maximum(counts, 1) / max(counts.sum(), 1)
-            weights = 1 / np.power(
-                frequencies,
-                self.config["loss"]["class_weight_power"],
-            )
-            weights = torch.tensor(weights / weights.mean(), dtype=torch.float32)
-            self.class_weights[task_name] = weights
+            if train_ids:
+                train_dataset = SegmentationDataset(
+                    dataset_dir,
+                    train_ids,
+                    self.dataset_config["image_size"],
+                    self.num_classes,
+                    task_name,
+                    augmentation=self.dataset_config["augmentation"],
+                )
+                train_datasets.append(train_dataset)
+                class_counts[task_name] += self._class_counts(train_dataset)
 
-            self.dataset_info[task_name] = {
+            if val_ids:
+                val_dataset = SegmentationDataset(
+                    dataset_dir,
+                    val_ids,
+                    self.dataset_config["image_size"],
+                    self.num_classes,
+                    task_name,
+                )
+                val_datasets.append(val_dataset)
+
+            self.dataset_info[task_name]["sources"].append({
                 "dataset_dir": str(dataset_dir),
-                "split": str(split_path),
+                "section": section,
+                "split": str(split_path) if split_path else None,
                 "num_samples": len(manifest),
                 "num_train": len(train_ids),
                 "num_val": len(val_ids),
-                "classes": self.class_name_mappings[task_name],
-                "class_counts": counts.tolist(),
-                "class_weights": weights.tolist(),
-            }
+            })
+
+        for task_name, counts in class_counts.items():
+            frequencies = np.maximum(counts, 1) / max(counts.sum(), 1)
+            weights = 1 / np.power(frequencies, self.config["loss"]["class_weight_power"])
+            weights = torch.tensor(weights / weights.mean(), dtype=torch.float32)
+
+            self.class_weights[task_name] = weights
+            self.dataset_info[task_name]["class_counts"] = counts.tolist()
+            self.dataset_info[task_name]["class_weights"] = weights.tolist()
 
         self.train_dataset = ConcatDataset(train_datasets)
         self.val_dataset = ConcatDataset(val_datasets)

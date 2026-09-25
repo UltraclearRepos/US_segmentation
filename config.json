@@ -1,7 +1,13 @@
 {
   "run_name": 3,
   "datasets": {
-    "thyroid": "data/prepared/tg3k"
+    "split": {
+      "thyroid": [
+        "data/prepared/tg3k"
+      ]
+    },
+    "train": {},
+    "val": {}
   },
   "paths": {
     "output_root": "outputs",
