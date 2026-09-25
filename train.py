@@ -79,7 +79,7 @@ def main():
     )
     model_wrapper.load_state_dict(best_checkpoint["state_dict"])
     del best_checkpoint
-    generate_validation_diagnostics(model_wrapper, data_module.val_dataset, run_dir)
+    generate_validation_diagnostics(model_wrapper, data_module.val_dataset, run_dir, "val")
 
 
 if __name__ == "__main__":

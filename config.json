@@ -1,7 +1,7 @@
 {
   "run_name": 3,
   "datasets": {
-    "thyroid": "data/prepared/PIUR_dataset"
+    "thyroid": "data/prepared/tg3k"
   },
   "paths": {
     "output_root": "outputs",
