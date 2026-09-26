@@ -1,4 +1,4 @@
-"""Fetch prepared datasets referenced by a training config from Jenkins artifacts.
+"""Fetch datasets and a pretrained checkpoint referenced by a training config.
 
 The Prepare_dataset Freestyle job is expected to:
 
@@ -9,6 +9,10 @@ Each archive must contain one top-level directory whose name matches the final
 component of the configured dataset path.  For example, ``tg3k.zip`` contains
 ``tg3k/...`` and is extracted into ``data/prepared`` to produce
 ``data/prepared/tg3k/...``.
+
+The same Jenkins job also stores model artifacts.  For an ``input_checkpoint`` equal
+to ``input_checkpoints/best_model.pth``, its build parameter must be
+``BUILD_NAME=best_model`` and the archived artifact must be ``best_model.pth``.
 """
 
 from __future__ import annotations
@@ -90,6 +94,19 @@ def load_dataset_paths(config_path: Path) -> list[Path]:
     return paths
 
 
+def load_input_checkpoint_path(config_path: Path) -> Path:
+    with config_path.resolve().open(encoding="utf-8") as file:
+        config = json.load(file)
+
+    try:
+        value = config["paths"]["input_checkpoint"]
+    except (KeyError, TypeError) as error:
+        raise ValueError("Config must contain paths.input_checkpoint") from error
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("Config paths.input_checkpoint must be a non-empty path")
+    return Path(value)
+
+
 def _authorization_header() -> str | None:
     username = os.environ.get("JENKINS_API_USER")
     token = os.environ.get("JENKINS_API_TOKEN")
@@ -137,38 +154,50 @@ def _build_parameter(build: dict, parameter_name: str):
     return None
 
 
-def find_dataset_artifact(
-    builds: list[dict], dataset_name: str, parameter_name: str
+def find_artifact(
+    builds: list[dict],
+    build_name: str,
+    artifact_name: str,
+    parameter_name: str,
+    job_label: str,
 ) -> tuple[int, str]:
     for build in sorted(builds, key=lambda value: value.get("number", -1), reverse=True):
         if build.get("result") != "SUCCESS":
             continue
-        if str(_build_parameter(build, parameter_name)) != dataset_name:
+        if str(_build_parameter(build, parameter_name)) != build_name:
             continue
 
         build_number = int(build["number"])
-        expected_name = f"{dataset_name}.zip"
         artifact = next(
             (
                 value
                 for value in build.get("artifacts", [])
-                if value.get("fileName") == expected_name
+                if value.get("fileName") == artifact_name
             ),
             None,
         )
         if artifact is None:
             raise FileNotFoundError(
-                f"Prepare_dataset build #{build_number} matches '{dataset_name}', "
-                f"but does not contain {expected_name}"
+                f"{job_label} build #{build_number} matches '{build_name}', "
+                f"but does not contain {artifact_name}"
             )
 
         relative_path = quote(artifact["relativePath"], safe="/")
         return build_number, f"{build['url'].rstrip('/')}/artifact/{relative_path}"
 
     raise FileNotFoundError(
-        f"No successful Prepare_dataset build with {parameter_name}={dataset_name!r} "
+        f"No successful {job_label} build with {parameter_name}={build_name!r} "
         f"was found among the inspected builds"
     )
+
+
+def resolve_workspace_path(path: Path, project_root: Path, label: str) -> Path:
+    target = (project_root / path).resolve()
+    try:
+        target.relative_to(project_root)
+    except ValueError as error:
+        raise ValueError(f"{label} path escapes the workspace: {path}") from error
+    return target
 
 
 def download_file(url: str, target: Path, authorization: str | None):
@@ -177,11 +206,7 @@ def download_file(url: str, target: Path, authorization: str | None):
 
 
 def extract_dataset(zip_path: Path, dataset_path: Path, project_root: Path):
-    target = (project_root / dataset_path).resolve()
-    try:
-        target.relative_to(project_root)
-    except ValueError as error:
-        raise ValueError(f"Dataset path escapes the workspace: {dataset_path}") from error
+    target = resolve_workspace_path(dataset_path, project_root, "Dataset")
 
     if target.exists():
         raise FileExistsError(
@@ -231,15 +256,20 @@ def main():
     args = parse_args()
     project_root = Path.cwd().resolve()
     dataset_paths = load_dataset_paths(args.config)
+    checkpoint_path = load_input_checkpoint_path(args.config)
     authorization = _authorization_header()
-    builds = load_builds(args.prepare_job_url, args.max_builds, authorization)
+    dataset_builds = load_builds(args.prepare_job_url, args.max_builds, authorization)
 
     with tempfile.TemporaryDirectory(prefix="jenkins-datasets-") as temp_dir:
         temp_root = Path(temp_dir)
         for dataset_path in dataset_paths:
             dataset_name = dataset_path.name
-            build_number, artifact_url = find_dataset_artifact(
-                builds, dataset_name, args.build_name_parameter
+            build_number, artifact_url = find_artifact(
+                dataset_builds,
+                dataset_name,
+                f"{dataset_name}.zip",
+                args.build_name_parameter,
+                "Prepare_dataset",
             )
             archive_path = temp_root / f"{dataset_name}.zip"
             print(
@@ -249,6 +279,31 @@ def main():
             download_file(artifact_url, archive_path, authorization)
             extract_dataset(archive_path, dataset_path, project_root)
             print(f"Extracted '{dataset_name}' to {(project_root / dataset_path).resolve()}")
+
+    checkpoint_name = checkpoint_path.stem
+    checkpoint_target = resolve_workspace_path(
+        checkpoint_path, project_root, "Input checkpoint"
+    )
+    if checkpoint_target.exists():
+        raise FileExistsError(
+            f"Input checkpoint already exists: {checkpoint_target}. "
+            "Start from a clean workspace."
+        )
+
+    model_build_number, model_artifact_url = find_artifact(
+        dataset_builds,
+        checkpoint_name,
+        checkpoint_path.name,
+        args.build_name_parameter,
+        "Prepare_dataset",
+    )
+    checkpoint_target.parent.mkdir(parents=True, exist_ok=True)
+    print(
+        f"Fetching checkpoint '{checkpoint_path.name}' from Prepare_dataset "
+        f"build #{model_build_number}"
+    )
+    download_file(model_artifact_url, checkpoint_target, authorization)
+    print(f"Saved checkpoint '{checkpoint_name}' to {checkpoint_target}")
 
 
 if __name__ == "__main__":
