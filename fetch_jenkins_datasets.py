@@ -121,7 +121,7 @@ def load_builds(job_url: str, max_builds: int, authorization: str | None) -> lis
 
     tree = (
         "builds[number,result,url,actions[parameters[name,value]],"
-        f"artifacts[fileName,relativePath]]]{{0,{max_builds}}}"
+        f"artifacts[fileName,relativePath]]{{0,{max_builds}}}"
     )
     api_url = f"{job_url.rstrip('/')}/api/json?{urlencode({'tree': tree})}"
     with _open_url(api_url, authorization) as response:
