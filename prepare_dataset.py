@@ -38,9 +38,16 @@ def load_classes(path):
 
 def supported_files(directory):
     return sorted(
-        path
-        for path in directory.iterdir()
-        if path.is_file() and path.suffix.lower() in EXTENSIONS
+        (
+            path
+            for path in directory.iterdir()
+            if path.is_file() and path.suffix.lower() in EXTENSIONS
+        ),
+        key=lambda path: (
+            (0, int(path.stem), path.suffix.lower())
+            if path.stem.isdigit()
+            else (1, path.stem.casefold(), path.suffix.lower())
+        ),
     )
 
 
