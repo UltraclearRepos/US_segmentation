@@ -8,8 +8,6 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
-from src.data_pipeline.denoising import DENOISING_METHODS, denoise_2d
-
 
 EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
 CLASS_COLUMNS = ["class_id", "class_name", "source_value"]
@@ -92,15 +90,10 @@ def remap_mask(path, mapping):
     return result
 
 
-def prepare_dataset(source_dir, output_dir, denoising="none"):
+def prepare_dataset(source_dir, output_dir):
     source_dir = source_dir.resolve()
-    denoising = str(denoising).strip().lower()
-    if denoising not in DENOISING_METHODS:
-        raise ValueError(f"Unknown denoising method: {denoising}")
 
     output_dir = output_dir.resolve()
-    if denoising != "none":
-        output_dir = output_dir.with_name(f"{output_dir.name}_{denoising}")
     required = [source_dir / "images", source_dir / "masks", source_dir / "classes.csv"]
     missing = [path for path in required if not path.exists()]
     if source_dir == output_dir:
@@ -138,12 +131,6 @@ def prepare_dataset(source_dir, output_dir, denoising="none"):
     for row in pairs.itertuples():
         image_target = output_dir / "images" / row.image_source.name
         mask_target = output_dir / "masks" / f"{row.sample_id}.png"
-        if denoising != "none":
-            with Image.open(row.image_source) as image:
-                image = np.asarray(image.convert("L"), dtype=np.float32)
-            image = denoise_2d(image, denoising)
-            image = np.clip(image, 0, 255).astype(np.uint8)
-            Image.fromarray(image, mode="L").save(image_target)
         Image.fromarray(masks[row.sample_id], mode="L").save(mask_target)
         image_paths.append(image_target.relative_to(output_dir).as_posix())
         mask_paths.append(mask_target.relative_to(output_dir).as_posix())
@@ -151,10 +138,7 @@ def prepare_dataset(source_dir, output_dir, denoising="none"):
     manifest = pairs[["sample_id"]].copy()
     manifest["image_path"], manifest["mask_path"] = image_paths, mask_paths
     manifest.to_csv(output_dir / "manifest.csv", index=False)
-    print(
-        f"Prepared {len(manifest)} samples with denoising={denoising} in: "
-        f"{output_dir}"
-    )
+    print(f"Prepared {len(manifest)} samples in: {output_dir}")
     return output_dir
 
 
@@ -162,17 +146,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument(
-        "--denoising",
-        choices=DENOISING_METHODS,
-        default="none",
-        help="Denoising method applied to every image (default: none)",
-    )
     return parser.parse_args()
 
 def main():
     args = parse_args()
-    prepare_dataset(args.source_dir, args.output_dir, denoising=args.denoising)
+    prepare_dataset(args.source_dir, args.output_dir)
 
 
 if __name__ == "__main__":
