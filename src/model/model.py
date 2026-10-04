@@ -148,7 +148,7 @@ class UNet(nn.Module):
     def forward(self, x):
 
         if x.shape[1] != self.in_channels:
-            x = x.repeat(1, self.in_channels, 1, 1)  # Repeat channels if input has fewer channels than expected
+            raise ValueError(f"Expected input with {self.in_channels} channels, but got {x.shape[1]} channels.")
 
         # Encoding path
         x1 = self.inc(x)
