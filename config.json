@@ -1,12 +1,17 @@
 {
-  "run_name": 3,
+  "run_name": 14,
   "datasets": {
     "split": {
       "thyroid": [
-        "data/prepared/tg3k"
+        "data/prepared/PIUR_dataset_axial_robin_meffle"
       ]
     },
-    "train": {},
+    "train": {
+      "thyroid": [
+        "data/prepared/tg3k",
+        "data/prepared/SegThy_dataset_axial"
+      ]
+    },
     "val": {}
   },
   "paths": {
@@ -61,8 +66,8 @@
     "batch_size": 8,
     "num_workers": 2,
     "pin_memory": true,
-    "epochs": 80,
-    "learning_rate": 0.0001,
+    "epochs": 200,
+    "learning_rate": 0.00001,
     "weight_decay": 0.0001
   },
   "loss": {
@@ -77,7 +82,7 @@
     "monitor": "val/mean_dice_fg",
     "early_stopping": {
       "enabled": true,
-      "patience": 30,
+      "patience": 50,
       "min_delta": 0.0
     }
   }
