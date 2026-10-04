@@ -1,4 +1,4 @@
-"""Save a random dataset sample after __getitem__, using config.json."""
+"""Save random dataset samples after __getitem__, using config.json."""
 
 import argparse
 from pathlib import Path
@@ -37,7 +37,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--config", default="config.json")
+    parser.add_argument("--count", type=int, default=1, help="Number of distinct samples to save (default: 1).")
     args = parser.parse_args()
+    if args.count < 1:
+        parser.error("--count must be at least 1")
 
     from src.data_pipeline.dataset import SegmentationDataset
 
@@ -54,15 +57,18 @@ def main():
         augmentation=config["data"]["augmentation"],
     )
 
-    index = random.randrange(len(dataset))
-    sample_id = dataset.samples.iloc[index].sample_id
-    context_ids = dataset._get_context_ids(sample_id)
-    images, mask, _, _ = dataset[index]
+    if args.count > len(dataset):
+        parser.error(f"--count cannot exceed the dataset size ({len(dataset)})")
 
-    output_path = Path("visualize") / dataset_dir.name / f"sample_{sample_id}.png"
-    save_preview(images.numpy(), mask.numpy(), context_ids, output_path, num_classes)
-    print(f"Context IDs: {context_ids}; image tensor: {tuple(images.shape)}")
-    print(f"Saved: {output_path.resolve()}")
+    for index in random.sample(range(len(dataset)), args.count):
+        sample_id = dataset.samples.iloc[index].sample_id
+        context_ids = dataset._get_context_ids(sample_id)
+        images, mask, _, _ = dataset[index]
+
+        output_path = Path("visualize") / dataset_dir.name / f"sample_{sample_id}.png"
+        save_preview(images.numpy(), mask.numpy(), context_ids, output_path, num_classes)
+        print(f"Context IDs: {context_ids}; image tensor: {tuple(images.shape)}")
+        print(f"Saved: {output_path.resolve()}")
 
 
 if __name__ == "__main__":
