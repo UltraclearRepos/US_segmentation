@@ -1,9 +1,9 @@
 {
-  "run_name": 14,
+  "run_name": 16,
   "datasets": {
     "split": {
       "thyroid": [
-        "data/prepared/PIUR_dataset_axial_robin_meffle"
+        "data/prepared/PIUR_dataset_axial_008"
       ]
     },
     "train": {

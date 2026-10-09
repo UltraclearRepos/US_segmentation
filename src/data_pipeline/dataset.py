@@ -144,15 +144,15 @@ class SegmentationDataset(Dataset):
     
     def _get_context_ids(self, sample_id):
         study = self.study_by_sample[sample_id]
-        previous_ids = []
+        context_ids = [sample_id] * 3
 
-        for offset in (1, 2):
-            previous_sample_id = sample_id - offset
+        for channel, offset in ((0, -1), (2, 1)):
+            neighbor_id = sample_id + offset
 
-            if previous_sample_id in self.samples.index and self.study_by_sample[previous_sample_id] == study:
-                previous_ids.append(previous_sample_id)
+            if neighbor_id in self.samples.index and self.study_by_sample[neighbor_id] == study:
+                context_ids[channel] = neighbor_id
 
-        return [sample_id] * (3 - len(previous_ids)) + previous_ids
+        return context_ids
 
 
     def __len__(self):

@@ -19,10 +19,10 @@ def save_preview(images, mask, context_ids, output_path, num_classes):
     panels = list(np.clip(images * 255, 0, 255).astype(np.uint8))
     panels.append((mask * 255 / max(num_classes - 1, 1)).astype(np.uint8))
     labels = [
-        f"Current: {context_ids[0]}",
-        f"Context 1: {context_ids[1]}",
-        f"Context 2: {context_ids[2]}",
-        f"Mask: {context_ids[0]}",
+        f"Previous: {context_ids[0]}",
+        f"Current: {context_ids[1]}",
+        f"Next: {context_ids[2]}",
+        f"Mask: {context_ids[1]}",
     ]
 
     for column, (panel, label) in enumerate(zip(panels, labels)):
