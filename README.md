@@ -21,6 +21,9 @@ Model was evaluated on each patient from [PIUR_dataset](https://huggingface.co/d
 ## Validation loss
 ![alt text](image-2.png)
 
+## Dice from checkpoints
+![alt text](image-11.png)
+
 
 # Results comparing to [UCLR-165](https://github.com/UltraclearRepos/US_segmentation/tree/UCLR-165)
 
@@ -32,6 +35,9 @@ Model was evaluated on each patient from [PIUR_dataset](https://huggingface.co/d
 ![alt text](image-8.png)
 ![alt text](image-9.png)
 ![alt text](image-10.png)
+
+## Comarison of checkpoint results
+![alt text](image-12.png)
 
 # Configs
 
