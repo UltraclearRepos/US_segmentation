@@ -20,6 +20,8 @@ Model was evaluated on each patient from [PIUR_dataset](https://huggingface.co/d
 ## Validation loss
 ![alt text](image-2.png)
 
+## Dice from checkpoints
+![alt text](image-3.png)
 
 
 # Configs
