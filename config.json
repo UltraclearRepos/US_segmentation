@@ -1,5 +1,5 @@
 {
-  "run_name": 14,
+  "run_name": 5,
   "datasets": {
     "split": {
       "thyroid": [
@@ -10,9 +10,17 @@
       "thyroid": [
         "data/prepared/tg3k",
         "data/prepared/SegThy_dataset_axial"
+      ],
+      "nodule": [
+        "data/prepared/tn3k",
+        "data/prepared/ThyroidXL_dataset"
       ]
     },
-    "val": {}
+    "val": {
+      "nodule": [
+        "data/prepared/TNUI_2021_dataset"
+      ]
+    }
   },
   "paths": {
     "output_root": "outputs",

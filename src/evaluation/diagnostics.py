@@ -50,8 +50,12 @@ def _save_comparison(image_path, prediction, target, output_path):
 
 
 @torch.inference_mode()
-def generate_validation_diagnostics(model, val_dataset, run_dir, output_dir):
-    """Run inference and save one side-by-side PNG for every validation sample."""
+def generate_validation_diagnostics(model, val_dataset, run_dir, output_dir, sample_subdirs=None):
+    """Run inference and save one side-by-side PNG for every validation sample.
+
+    sample_subdirs optionally maps str(sample_id) to an extra subdirectory
+    (e.g. patient ID) placed inside the task directory.
+    """
     output_dir = Path(run_dir) / "diagnostics" / output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     device = next(model.parameters()).device
@@ -79,7 +83,10 @@ def generate_validation_diagnostics(model, val_dataset, run_dir, output_dir):
                 mode="nearest",
             )[0, 0].cpu().numpy().astype(np.uint8)
 
-            output_path = output_dir / task_name / f"{str(sample_id)}.png"
+            sample_dir = output_dir / task_name
+            if sample_subdirs is not None:
+                sample_dir = sample_dir / sample_subdirs[str(sample_id)]
+            output_path = sample_dir / f"{str(sample_id)}.png"
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             _save_comparison(
